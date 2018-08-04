@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -27,24 +26,19 @@ type msg struct {
 	Num int
 }
 
-func main() {
-	indexFile, err := os.Open("index.html")
-	if err != nil {
-		fmt.Println(err)
-	}
-	index, err := ioutil.ReadAll(indexFile)
-	if err != nil {
-		fmt.Println(err)
-	}
+type ChatService struct {
+	queue   amqp.Queue
+	channel *amqp.Channel
+}
+
+func NewChatService() *ChatService {
 	messageQueue, err := amqp.Dial("amqp://guest:guest@0.0.0.0:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ --")
-	defer messageQueue.Close()
 
 	queueChannel, err := messageQueue.Channel()
 	failOnError(err, "Failed to open a channel")
-	defer queueChannel.Close()
 
-	q, err := queueChannel.QueueDeclare(
+	queue, err := queueChannel.QueueDeclare(
 		"chat", // name
 		false,  // durable
 		false,  // delete when unused
@@ -54,76 +48,64 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, string(index))
-	})
+	fmt.Println("New Chat Service...")
 
-	http.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) {
+	return &ChatService{
+		queue:   queue,
+		channel: queueChannel,
+	}
+}
 
-		websocketChannel, err := buffer.Upgrade(w, r, nil)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		fmt.Println("Listening for messages...")
+func (c *ChatService) Publish(message []byte) {
+	err := c.channel.Publish(
+		"",           // exchange
+		c.queue.Name, // routing key
+		false,        // mandatory
+		false,        // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        message,
+		})
+	failOnError(err, "Failed to publish a message")
+}
 
-		for {
-			_, msg, err := websocketChannel.ReadMessage()
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			err = queueChannel.Publish(
-				"",     // exchange
-				q.Name, // routing key
-				false,  // mandatory
-				false,  // immediate
-				amqp.Publishing{
-					ContentType: "text/plain",
-					Body:        msg,
-				})
-			failOnError(err, "Failed to publish a message")
-			fmt.Println("Message read")
-		}
-	})
+func (c *ChatService) GetNextMessage() <-chan amqp.Delivery {
+	msgs, err := c.channel.Consume(
+		c.queue.Name, // queue
+		"",           // consumer
+		true,         // auto-ack
+		false,        // exclusive
+		false,        // no-local
+		false,        // no-wait
+		nil,          // args
+	)
+	failOnError(err, "Failed to register a consumer")
+	return msgs
+}
 
-	http.HandleFunc("/listen", func(w http.ResponseWriter, r *http.Request) {
+type CabelService struct {
+	websocketChannel *websocket.Conn
+}
 
-		websocketChannel, err := buffer.Upgrade(w, r, nil)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+func NewCabelService(w http.ResponseWriter, r *http.Request, responseHeader http.Header) *CabelService {
+	websocketChannel, err := buffer.Upgrade(w, r, nil)
+	fmt.Println("New Cabel Service...")
+	failOnError(err, "NewCabelService fail")
+	return &CabelService{
+		websocketChannel: websocketChannel,
+	}
+}
 
-		msgs, err := queueChannel.Consume(
-			q.Name, // queue
-			"",     // consumer
-			true,   // auto-ack
-			false,  // exclusive
-			false,  // no-local
-			false,  // no-wait
-			nil,    // args
-		)
-		failOnError(err, "Failed to register a consumer")
+func (c *CabelService) ReadNextMessage() []byte {
+	_, msg, err := c.websocketChannel.ReadMessage()
+	failOnError(err, "WebsocketChannel Read Fail")
+	return msg
+}
 
-		fmt.Println("Client setup")
+func (c *CabelService) SendMessage(msg []byte) {
+	err := c.websocketChannel.WriteMessage(websocket.TextMessage, msg)
+	failOnError(err, "WebsocketChannel Send Fail")
 
-		for d := range msgs {
-
-			message := MessageEvent{}
-			json.Unmarshal(d.Body, &message)
-			fmt.Println(message)
-
-			err = websocketChannel.WriteMessage(websocket.TextMessage, d.Body)
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-		}
-
-	})
-
-	http.ListenAndServe(":3000", nil)
 }
 
 func failOnError(err error, msg string) {
@@ -131,4 +113,45 @@ func failOnError(err error, msg string) {
 		log.Fatalf("%s: %s", msg, err)
 		panic(fmt.Sprintf("%s: %s", msg, err))
 	}
+}
+
+func main() {
+	indexFile, err := os.Open("index.html")
+	if err != nil {
+		fmt.Println(err)
+	}
+	index, err := ioutil.ReadAll(indexFile)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	chatService := NewChatService()
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, string(index))
+	})
+
+	http.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) {
+
+		cabelService := NewCabelService(w, r, nil)
+
+		for {
+			msg := cabelService.ReadNextMessage()
+			chatService.Publish(msg)
+			fmt.Println("Message from client to queue", string(msg))
+		}
+	})
+
+	http.HandleFunc("/listen", func(w http.ResponseWriter, r *http.Request) {
+
+		cabelService := NewCabelService(w, r, nil)
+
+		for d := range chatService.GetNextMessage() {
+			cabelService.SendMessage(d.Body)
+			fmt.Println("Message from queue to client", string(d.Body))
+		}
+
+	})
+
+	http.ListenAndServe(":3000", nil)
 }
