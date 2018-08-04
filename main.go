@@ -26,12 +26,12 @@ type msg struct {
 	Num int
 }
 
-type ChatService struct {
+type ChatClient struct {
 	queue   amqp.Queue
 	channel *amqp.Channel
 }
 
-func NewChatService() *ChatService {
+func NewChatClient() *ChatClient {
 	messageQueue, err := amqp.Dial("amqp://guest:guest@0.0.0.0:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ --")
 
@@ -50,13 +50,13 @@ func NewChatService() *ChatService {
 
 	fmt.Println("New Chat Service...")
 
-	return &ChatService{
+	return &ChatClient{
 		queue:   queue,
 		channel: queueChannel,
 	}
 }
 
-func (c *ChatService) Publish(message []byte) {
+func (c *ChatClient) Publish(message []byte) {
 	err := c.channel.Publish(
 		"",           // exchange
 		c.queue.Name, // routing key
@@ -69,7 +69,7 @@ func (c *ChatService) Publish(message []byte) {
 	failOnError(err, "Failed to publish a message")
 }
 
-func (c *ChatService) GetNextMessage() <-chan amqp.Delivery {
+func (c *ChatClient) GetNextMessage() <-chan amqp.Delivery {
 	msgs, err := c.channel.Consume(
 		c.queue.Name, // queue
 		"",           // consumer
@@ -97,7 +97,8 @@ func NewCabelService(w http.ResponseWriter, r *http.Request, responseHeader http
 }
 
 func (c *CabelService) ReadNextMessage() []byte {
-	_, msg, err := c.websocketChannel.ReadMessage()
+	msgType, msg, err := c.websocketChannel.ReadMessage()
+	fmt.Println(string(msgType), string(msg), err)
 	failOnError(err, "WebsocketChannel Read Fail")
 	return msg
 }
@@ -106,6 +107,42 @@ func (c *CabelService) SendMessage(msg []byte) {
 	err := c.websocketChannel.WriteMessage(websocket.TextMessage, msg)
 	failOnError(err, "WebsocketChannel Send Fail")
 
+}
+
+type CabelServiceHub struct {
+	clients map[*CabelService]bool
+
+	broadcastChannel chan []byte
+
+	register chan *CabelService
+
+	unregister chan *CabelService
+}
+
+func NewCabelServiceHub() *CabelServiceHub {
+	return &CabelServiceHub{
+		clients:          make(map[*CabelService]bool),
+		broadcastChannel: make(chan []byte),
+		register:         make(chan *CabelService),
+		unregister:       make(chan *CabelService),
+	}
+}
+
+func (clh *CabelServiceHub) Start() {
+	for {
+		select {
+		case client := <-clh.register:
+			clh.clients[client] = true
+		case client := <-clh.unregister:
+			delete(clh.clients, client)
+			client.websocketChannel.Close()
+		case message := <-clh.broadcastChannel:
+			fmt.Println("message to be broadcast", string(message))
+			for client := range clh.clients {
+				client.SendMessage(message)
+			}
+		}
+	}
 }
 
 func failOnError(err error, msg string) {
@@ -125,7 +162,9 @@ func main() {
 		fmt.Println(err)
 	}
 
-	chatService := NewChatService()
+	chatClient := NewChatClient()
+	cabelServiceHub := NewCabelServiceHub()
+	go cabelServiceHub.Start()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, string(index))
@@ -134,10 +173,13 @@ func main() {
 	http.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) {
 
 		cabelService := NewCabelService(w, r, nil)
+		defer cabelService.websocketChannel.Close()
+
+		fmt.Println("Connecting chat")
 
 		for {
 			msg := cabelService.ReadNextMessage()
-			chatService.Publish(msg)
+			chatClient.Publish(msg)
 			fmt.Println("Message from client to queue", string(msg))
 		}
 	})
@@ -145,9 +187,13 @@ func main() {
 	http.HandleFunc("/listen", func(w http.ResponseWriter, r *http.Request) {
 
 		cabelService := NewCabelService(w, r, nil)
+		defer cabelService.websocketChannel.Close()
 
-		for d := range chatService.GetNextMessage() {
-			cabelService.SendMessage(d.Body)
+		cabelServiceHub.register <- cabelService
+		fmt.Println("Connecting listen")
+
+		for d := range chatClient.GetNextMessage() {
+			cabelServiceHub.broadcastChannel <- d.Body
 			fmt.Println("Message from queue to client", string(d.Body))
 		}
 

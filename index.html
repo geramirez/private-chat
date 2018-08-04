@@ -21,6 +21,7 @@
             chatChannel.onclose = function () {console.log("closing")};
 
         }
+        myWebsocketStart()
         function onSendMessage() {
             var inputWindow = document.getElementById("input-window");
             var messageEvent = {
@@ -35,7 +36,6 @@
 </head>
 
 <body>
-    <button onclick="javascript:myWebsocketStart()">Start websocket!</button>
     <textarea id="input-window">MyTextArea</textarea>
     <button onclick="javascript:onSendMessage()">send!</button>
     <div id="chat-window"></div>
