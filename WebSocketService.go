@@ -16,6 +16,11 @@ type WebSocketService struct {
 	websocketChannel *websocket.Conn
 }
 
+type WebSocketMessage struct {
+	message []byte
+	err     error
+}
+
 func NewWebSocketService(w http.ResponseWriter, r *http.Request, responseHeader http.Header) *WebSocketService {
 	websocketChannel, err := buffer.Upgrade(w, r, nil)
 	fmt.Println("New Cabel Service...")
@@ -25,16 +30,17 @@ func NewWebSocketService(w http.ResponseWriter, r *http.Request, responseHeader 
 	}
 }
 
-func (c *WebSocketService) MessageStream() <-chan []byte {
+func (c *WebSocketService) MessageStream() <-chan WebSocketMessage {
 
-	messageChannel := make(chan []byte)
+	messageChannel := make(chan WebSocketMessage)
 	go func() {
 		for {
 			message, err := c.readNextMessage()
-			if err != nil {
-				break
+
+			messageChannel <- WebSocketMessage{
+				message: message,
+				err:     err,
 			}
-			messageChannel <- message
 		}
 	}()
 	return messageChannel
@@ -49,7 +55,10 @@ func (c *WebSocketService) readNextMessage() ([]byte, error) {
 	return msg, nil
 }
 
-func (c *WebSocketService) SendMessage(msg []byte) {
+func (c *WebSocketService) SendMessage(msg []byte) error {
 	err := c.websocketChannel.WriteMessage(websocket.TextMessage, msg)
-	failOnError(err, "WebsocketChannel Send Fail")
+	if err != nil {
+		return err
+	}
+	return nil
 }

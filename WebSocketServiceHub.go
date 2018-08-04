@@ -29,13 +29,29 @@ func (clh *WebSocketServiceHub) Start() {
 		case client := <-clh.unregister:
 			delete(clh.clients, client)
 			client.websocketChannel.Close()
+			fmt.Println("closing channel")
 		case message := <-clh.broadcastChannel:
 			fmt.Println("Message from queue to clients", string(message))
 			for client := range clh.clients {
-				client.SendMessage(message)
+				err := client.SendMessage(message)
+				fmt.Println("total clients", len(clh.clients))
+				if err != nil {
+					fmt.Println("error closing channel")
+					delete(clh.clients, client)
+					client.websocketChannel.Close()
+					fmt.Println("closing channel")
+				}
 			}
 		}
 	}
+}
+
+func (clh *WebSocketServiceHub) Unregister(ws *WebSocketService) {
+	clh.unregister <- ws
+}
+
+func (clh *WebSocketServiceHub) Register(ws *WebSocketService) {
+	clh.register <- ws
 }
 
 func (clh *WebSocketServiceHub) Publish(message []byte) {

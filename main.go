@@ -40,8 +40,11 @@ func main() {
 		}()
 		fmt.Println("Connecting chat")
 
-		for msg := range webSocketService.MessageStream() {
-			chatService.Publish(msg)
+		for wsMessage := range webSocketService.MessageStream() {
+			if wsMessage.err != nil {
+				break
+			}
+			chatService.Publish(wsMessage.message)
 		}
 	})
 
@@ -49,11 +52,11 @@ func main() {
 
 		webSocketService := NewWebSocketService(w, r, nil)
 		defer func() {
-			fmt.Println("closing /chat")
-			webSocketService.websocketChannel.Close()
+			fmt.Println("closing /listen")
+			webSocketServiceHub.Unregister(webSocketService)
 		}()
 
-		webSocketServiceHub.register <- webSocketService
+		webSocketServiceHub.Register(webSocketService)
 		fmt.Println("Connecting listen")
 
 		for d := range chatService.MessageStream() {
