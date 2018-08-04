@@ -1,0 +1,44 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+
+    <script type="text/javascript">
+        var listenChannel = new WebSocket("ws://localhost:3000/listen");
+        var chatChannel = new WebSocket("ws://localhost:3000/chat");
+        function myWebsocketStart() {
+            listenChannel.onopen = function () { console.log("listening") };
+            chatChannel.onopen = function () { console.log("listening") };
+
+            listenChannel.onmessage = function (evt) {
+                console.log(evt)
+                var chatWindow = document.getElementById("chat-window");
+                var textnode = document.createTextNode(evt.data);
+                chatWindow.appendChild(textnode);
+            };
+
+            listenChannel.onclose = function () {console.log("closing")};
+            chatChannel.onclose = function () {console.log("closing")};
+
+        }
+        function onSendMessage() {
+            var inputWindow = document.getElementById("input-window");
+            var messageEvent = {
+                UserName: "chat",
+                Text: inputWindow.value,
+                TimeStamp: Date.now() / 1000 | 0
+            };
+            chatChannel.send(JSON.stringify(messageEvent));
+        }
+    </script>
+
+</head>
+
+<body>
+    <button onclick="javascript:myWebsocketStart()">Start websocket!</button>
+    <textarea id="input-window">MyTextArea</textarea>
+    <button onclick="javascript:onSendMessage()">send!</button>
+    <div id="chat-window"></div>
+</body>
+
+</html>
