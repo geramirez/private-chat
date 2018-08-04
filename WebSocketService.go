@@ -30,18 +30,23 @@ func (c *WebSocketService) MessageStream() <-chan []byte {
 	messageChannel := make(chan []byte)
 	go func() {
 		for {
-			message := c.readNextMessage()
+			message, err := c.readNextMessage()
+			if err != nil {
+				break
+			}
 			messageChannel <- message
 		}
 	}()
 	return messageChannel
 }
 
-func (c *WebSocketService) readNextMessage() []byte {
+func (c *WebSocketService) readNextMessage() ([]byte, error) {
 	msgType, msg, err := c.websocketChannel.ReadMessage()
-	fmt.Println(string(msgType), string(msg), err)
-	failOnError(err, "WebsocketChannel Read Fail")
-	return msg
+	if err != nil {
+		fmt.Println(string(msgType), string(msg), err)
+		return nil, err
+	}
+	return msg, nil
 }
 
 func (c *WebSocketService) SendMessage(msg []byte) {

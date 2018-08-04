@@ -37,6 +37,7 @@ func NewChatService() *ChatService {
 }
 
 func (c *ChatService) Publish(message []byte) {
+	fmt.Println("Message from client to queue", string(message))
 	err := c.channel.Publish(
 		"",           // exchange
 		c.queue.Name, // routing key

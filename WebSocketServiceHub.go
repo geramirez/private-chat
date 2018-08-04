@@ -30,10 +30,14 @@ func (clh *WebSocketServiceHub) Start() {
 			delete(clh.clients, client)
 			client.websocketChannel.Close()
 		case message := <-clh.broadcastChannel:
-			fmt.Println("message to be broadcast", string(message))
+			fmt.Println("Message from queue to clients", string(message))
 			for client := range clh.clients {
 				client.SendMessage(message)
 			}
 		}
 	}
+}
+
+func (clh *WebSocketServiceHub) Publish(message []byte) {
+	clh.broadcastChannel <- message
 }

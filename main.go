@@ -34,27 +34,30 @@ func main() {
 	http.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) {
 
 		webSocketService := NewWebSocketService(w, r, nil)
-		defer webSocketService.websocketChannel.Close()
-
+		defer func() {
+			fmt.Println("closing /chat")
+			webSocketService.websocketChannel.Close()
+		}()
 		fmt.Println("Connecting chat")
 
 		for msg := range webSocketService.MessageStream() {
 			chatService.Publish(msg)
-			fmt.Println("Message from client to queue", string(msg))
 		}
 	})
 
 	http.HandleFunc("/listen", func(w http.ResponseWriter, r *http.Request) {
 
 		webSocketService := NewWebSocketService(w, r, nil)
-		defer webSocketService.websocketChannel.Close()
+		defer func() {
+			fmt.Println("closing /chat")
+			webSocketService.websocketChannel.Close()
+		}()
 
 		webSocketServiceHub.register <- webSocketService
 		fmt.Println("Connecting listen")
 
 		for d := range chatService.MessageStream() {
-			webSocketServiceHub.broadcastChannel <- d.Body
-			fmt.Println("Message from queue to client", string(d.Body))
+			webSocketServiceHub.Publish(d.Body)
 		}
 	})
 
