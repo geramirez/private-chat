@@ -6,12 +6,12 @@ import (
 	"github.com/streadway/amqp"
 )
 
-type ChatClient struct {
+type ChatService struct {
 	queue   amqp.Queue
 	channel *amqp.Channel
 }
 
-func NewChatClient() *ChatClient {
+func NewChatService() *ChatService {
 	messageQueue, err := amqp.Dial("amqp://guest:guest@0.0.0.0:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ --")
 
@@ -30,13 +30,13 @@ func NewChatClient() *ChatClient {
 
 	fmt.Println("New Chat Service...")
 
-	return &ChatClient{
+	return &ChatService{
 		queue:   queue,
 		channel: queueChannel,
 	}
 }
 
-func (c *ChatClient) Publish(message []byte) {
+func (c *ChatService) Publish(message []byte) {
 	err := c.channel.Publish(
 		"",           // exchange
 		c.queue.Name, // routing key
@@ -49,7 +49,7 @@ func (c *ChatClient) Publish(message []byte) {
 	failOnError(err, "Failed to publish a message")
 }
 
-func (c *ChatClient) GetNextMessage() <-chan amqp.Delivery {
+func (c *ChatService) MessageStream() <-chan amqp.Delivery {
 	msgs, err := c.channel.Consume(
 		c.queue.Name, // queue
 		"",           // consumer

@@ -7,6 +7,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var buffer = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
 type WebSocketService struct {
 	websocketChannel *websocket.Conn
 }
@@ -20,7 +25,19 @@ func NewWebSocketService(w http.ResponseWriter, r *http.Request, responseHeader 
 	}
 }
 
-func (c *WebSocketService) ReadNextMessage() []byte {
+func (c *WebSocketService) MessageStream() <-chan []byte {
+
+	messageChannel := make(chan []byte)
+	go func() {
+		for {
+			message := c.readNextMessage()
+			messageChannel <- message
+		}
+	}()
+	return messageChannel
+}
+
+func (c *WebSocketService) readNextMessage() []byte {
 	msgType, msg, err := c.websocketChannel.ReadMessage()
 	fmt.Println(string(msgType), string(msg), err)
 	failOnError(err, "WebsocketChannel Read Fail")

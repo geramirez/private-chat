@@ -5,19 +5,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-
-	"github.com/gorilla/websocket"
 )
 
 type MessageEvent struct {
 	UserName  string
 	Text      string
 	TimeStamp int64
-}
-
-var buffer = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
 }
 
 func main() {
@@ -30,7 +23,7 @@ func main() {
 		fmt.Println(err)
 	}
 
-	chatClient := NewChatClient()
+	chatService := NewChatService()
 	webSocketServiceHub := NewWebSocketServiceHub()
 	go webSocketServiceHub.Start()
 
@@ -45,9 +38,8 @@ func main() {
 
 		fmt.Println("Connecting chat")
 
-		for {
-			msg := webSocketService.ReadNextMessage()
-			chatClient.Publish(msg)
+		for msg := range webSocketService.MessageStream() {
+			chatService.Publish(msg)
 			fmt.Println("Message from client to queue", string(msg))
 		}
 	})
@@ -60,11 +52,10 @@ func main() {
 		webSocketServiceHub.register <- webSocketService
 		fmt.Println("Connecting listen")
 
-		for d := range chatClient.GetNextMessage() {
+		for d := range chatService.MessageStream() {
 			webSocketServiceHub.broadcastChannel <- d.Body
 			fmt.Println("Message from queue to client", string(d.Body))
 		}
-
 	})
 
 	http.ListenAndServe(":3000", nil)
