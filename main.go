@@ -31,8 +31,8 @@ func main() {
 	}
 
 	chatClient := NewChatClient()
-	cabelServiceHub := NewCabelServiceHub()
-	go cabelServiceHub.Start()
+	webSocketServiceHub := NewWebSocketServiceHub()
+	go webSocketServiceHub.Start()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, string(index))
@@ -40,13 +40,13 @@ func main() {
 
 	http.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) {
 
-		cabelService := NewCabelService(w, r, nil)
-		defer cabelService.websocketChannel.Close()
+		webSocketService := NewWebSocketService(w, r, nil)
+		defer webSocketService.websocketChannel.Close()
 
 		fmt.Println("Connecting chat")
 
 		for {
-			msg := cabelService.ReadNextMessage()
+			msg := webSocketService.ReadNextMessage()
 			chatClient.Publish(msg)
 			fmt.Println("Message from client to queue", string(msg))
 		}
@@ -54,14 +54,14 @@ func main() {
 
 	http.HandleFunc("/listen", func(w http.ResponseWriter, r *http.Request) {
 
-		cabelService := NewCabelService(w, r, nil)
-		defer cabelService.websocketChannel.Close()
+		webSocketService := NewWebSocketService(w, r, nil)
+		defer webSocketService.websocketChannel.Close()
 
-		cabelServiceHub.register <- cabelService
+		webSocketServiceHub.register <- webSocketService
 		fmt.Println("Connecting listen")
 
 		for d := range chatClient.GetNextMessage() {
-			cabelServiceHub.broadcastChannel <- d.Body
+			webSocketServiceHub.broadcastChannel <- d.Body
 			fmt.Println("Message from queue to client", string(d.Body))
 		}
 

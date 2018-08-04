@@ -2,26 +2,26 @@ package main
 
 import "fmt"
 
-type CabelServiceHub struct {
-	clients map[*CabelService]bool
+type WebSocketServiceHub struct {
+	clients map[*WebSocketService]bool
 
 	broadcastChannel chan []byte
 
-	register chan *CabelService
+	register chan *WebSocketService
 
-	unregister chan *CabelService
+	unregister chan *WebSocketService
 }
 
-func NewCabelServiceHub() *CabelServiceHub {
-	return &CabelServiceHub{
-		clients:          make(map[*CabelService]bool),
+func NewWebSocketServiceHub() *WebSocketServiceHub {
+	return &WebSocketServiceHub{
+		clients:          make(map[*WebSocketService]bool),
 		broadcastChannel: make(chan []byte),
-		register:         make(chan *CabelService),
-		unregister:       make(chan *CabelService),
+		register:         make(chan *WebSocketService),
+		unregister:       make(chan *WebSocketService),
 	}
 }
 
-func (clh *CabelServiceHub) Start() {
+func (clh *WebSocketServiceHub) Start() {
 	for {
 		select {
 		case client := <-clh.register:

@@ -7,28 +7,27 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type CabelService struct {
+type WebSocketService struct {
 	websocketChannel *websocket.Conn
 }
 
-func NewCabelService(w http.ResponseWriter, r *http.Request, responseHeader http.Header) *CabelService {
+func NewWebSocketService(w http.ResponseWriter, r *http.Request, responseHeader http.Header) *WebSocketService {
 	websocketChannel, err := buffer.Upgrade(w, r, nil)
 	fmt.Println("New Cabel Service...")
-	failOnError(err, "NewCabelService fail")
-	return &CabelService{
+	failOnError(err, "NewWebSocketService fail")
+	return &WebSocketService{
 		websocketChannel: websocketChannel,
 	}
 }
 
-func (c *CabelService) ReadNextMessage() []byte {
+func (c *WebSocketService) ReadNextMessage() []byte {
 	msgType, msg, err := c.websocketChannel.ReadMessage()
 	fmt.Println(string(msgType), string(msg), err)
 	failOnError(err, "WebsocketChannel Read Fail")
 	return msg
 }
 
-func (c *CabelService) SendMessage(msg []byte) {
+func (c *WebSocketService) SendMessage(msg []byte) {
 	err := c.websocketChannel.WriteMessage(websocket.TextMessage, msg)
 	failOnError(err, "WebsocketChannel Send Fail")
-
 }
