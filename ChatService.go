@@ -11,6 +11,11 @@ type ChatService struct {
 	channel *amqp.Channel
 }
 
+type IChatService interface {
+	Publish([]byte)
+	MessageStream() <-chan []byte
+}
+
 func NewChatService(queueUrl string) *ChatService {
 	messageQueue, err := amqp.Dial(queueUrl)
 	failOnError(err, "Failed to connect to RabbitMQ --")
@@ -50,8 +55,8 @@ func (c *ChatService) Publish(message []byte) {
 	failOnError(err, "Failed to publish a message")
 }
 
-func (c *ChatService) MessageStream() <-chan amqp.Delivery {
-	msgs, err := c.channel.Consume(
+func (c *ChatService) MessageStream() <-chan []byte {
+	queueMessageChannel, err := c.channel.Consume(
 		c.queue.Name, // queue
 		"",           // consumer
 		true,         // auto-ack
@@ -61,5 +66,12 @@ func (c *ChatService) MessageStream() <-chan amqp.Delivery {
 		nil,          // args
 	)
 	failOnError(err, "Failed to register a consumer")
-	return msgs
+
+	messageChannel := make(chan []byte)
+	go func() {
+		for payload := range queueMessageChannel {
+			messageChannel <- payload.Body
+		}
+	}()
+	return messageChannel
 }

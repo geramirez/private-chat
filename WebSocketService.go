@@ -12,6 +12,12 @@ var buffer = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+type IWebSocketService interface {
+	MessageStream() <-chan WebSocketMessage
+	SendMessage([]byte) error
+	Close()
+}
+
 type WebSocketService struct {
 	websocketChannel *websocket.Conn
 }

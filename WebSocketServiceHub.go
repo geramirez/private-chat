@@ -2,6 +2,13 @@ package main
 
 import "fmt"
 
+type IWebSocketServiceHub interface {
+	Start()
+	Unregister(*WebSocketService)
+	Register(*WebSocketService)
+	Publish([]byte)
+}
+
 type WebSocketServiceHub struct {
 	clients map[*WebSocketService]bool
 

@@ -86,8 +86,8 @@ func main() {
 		webSocketServiceHub.Register(webSocketService)
 		fmt.Println("Connecting listen")
 
-		for d := range chatService.MessageStream() {
-			webSocketServiceHub.Publish(d.Body)
+		for message := range chatService.MessageStream() {
+			webSocketServiceHub.Publish(message)
 		}
 	})
 	fmt.Println("RUNNING ONT PORT:", fmt.Sprintf(":%d", config.Port))
