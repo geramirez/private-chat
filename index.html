@@ -15,7 +15,8 @@
                 var chatWindow = document.getElementById("chat-window");
                 var p = document.createElement("p");
                 var br = document.createElement("br");
-                var textnode = document.createTextNode(JSON.parse(evt.data).Text);
+                var payload = JSON.parse(evt.data)
+                var textnode = document.createTextNode(payload.UserName + ": " + payload.Text);
                 p.appendChild(textnode)
                 chatWindow.appendChild(textnode);
                 chatWindow.appendChild(br)
@@ -28,19 +29,22 @@
         myWebsocketStart()
         function onSendMessage() {
             var inputWindow = document.getElementById("input-window");
+            var userNameWindow = document.getElementById("username-window");
             var messageEvent = {
-                UserName: "chat",
+                UserName: userNameWindow.value,
                 Text: inputWindow.value,
                 TimeStamp: Date.now() / 1000 | 0
             };
             chatChannel.send(JSON.stringify(messageEvent));
+            inputWindow.value = ""
         }
     </script>
 
 </head>
 
 <body>
-    <textarea id="input-window">MyTextArea</textarea>
+    <input id="username-window">UserName</input>
+    <input id="input-window">Message</input>
     <button onclick="javascript:onSendMessage()">send!</button>
     <div id="chat-window"></div>
 </body>
