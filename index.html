@@ -4,8 +4,8 @@
 <head>
 
     <script type="text/javascript">
-        var listenChannel = new WebSocket("ws://localhost:3000/listen");
-        var chatChannel = new WebSocket("ws://localhost:3000/chat");
+        var listenChannel = new WebSocket("wss://" + location.host + "/listen");
+        var chatChannel = new WebSocket("wss://" + location.host + "/chat");
         function myWebsocketStart() {
             listenChannel.onopen = function () { console.log("listening") };
             chatChannel.onopen = function () { console.log("listening") };

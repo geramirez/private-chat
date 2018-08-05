@@ -5,12 +5,38 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+
+	cfenv "github.com/cloudfoundry-community/go-cfenv"
 )
 
 type MessageEvent struct {
 	UserName  string
 	Text      string
 	TimeStamp int64
+}
+
+type Config struct {
+	Port     int
+	QueueUrl string
+}
+
+type RabbitMQ struct {
+}
+
+func NewConfig() *Config {
+	appEnv, err := cfenv.Current()
+	if err != nil {
+		return &Config{
+			Port:     3000,
+			QueueUrl: "amqp://guest:guest@0.0.0.0:5672/",
+		}
+	}
+	services, _ := appEnv.Services.WithTag("RabbitMQ")
+	rabbitMQURI := services[0].Credentials["uri"]
+	return &Config{
+		Port:     appEnv.Port,
+		QueueUrl: rabbitMQURI.(string),
+	}
 }
 
 func main() {
@@ -23,7 +49,9 @@ func main() {
 		fmt.Println(err)
 	}
 
-	chatService := NewChatService()
+	config := NewConfig()
+
+	chatService := NewChatService(config.QueueUrl)
 	webSocketServiceHub := NewWebSocketServiceHub()
 	go webSocketServiceHub.Start()
 
@@ -63,6 +91,6 @@ func main() {
 			webSocketServiceHub.Publish(d.Body)
 		}
 	})
-
-	http.ListenAndServe(":3000", nil)
+	fmt.Println("RUNNING ONT PORT:", fmt.Sprintf(":%d", config.Port))
+	http.ListenAndServe(fmt.Sprintf(":%d", config.Port), nil)
 }

@@ -1,0 +1,9 @@
+applications:
+- name: private-chat
+  buildpack: go_buildpack
+  disk_quota: 1G
+  instances: 1
+  memory: 64M
+  env:
+    GOVERSION: go1.10
+    GOPACKAGENAME: private-chat

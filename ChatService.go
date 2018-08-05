@@ -11,8 +11,8 @@ type ChatService struct {
 	channel *amqp.Channel
 }
 
-func NewChatService() *ChatService {
-	messageQueue, err := amqp.Dial("amqp://guest:guest@0.0.0.0:5672/")
+func NewChatService(queueUrl string) *ChatService {
+	messageQueue, err := amqp.Dial(queueUrl)
 	failOnError(err, "Failed to connect to RabbitMQ --")
 
 	queueChannel, err := messageQueue.Channel()
