@@ -50,7 +50,6 @@ func main() {
 	}
 
 	config := NewConfig()
-
 	chatService := NewChatService(config.QueueUrl)
 	webSocketServiceHub := NewWebSocketServiceHub()
 	go webSocketServiceHub.Start()

@@ -62,3 +62,8 @@ func (c *WebSocketService) SendMessage(msg []byte) error {
 	}
 	return nil
 }
+
+func (c *WebSocketService) Close() {
+	fmt.Println("closing channel")
+	c.websocketChannel.Close()
+}

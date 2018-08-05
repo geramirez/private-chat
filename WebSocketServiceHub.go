@@ -8,8 +8,6 @@ type WebSocketServiceHub struct {
 	broadcastChannel chan []byte
 
 	register chan *WebSocketService
-
-	unregister chan *WebSocketService
 }
 
 func NewWebSocketServiceHub() *WebSocketServiceHub {
@@ -17,7 +15,6 @@ func NewWebSocketServiceHub() *WebSocketServiceHub {
 		clients:          make(map[*WebSocketService]bool),
 		broadcastChannel: make(chan []byte),
 		register:         make(chan *WebSocketService),
-		unregister:       make(chan *WebSocketService),
 	}
 }
 
@@ -26,28 +23,22 @@ func (clh *WebSocketServiceHub) Start() {
 		select {
 		case client := <-clh.register:
 			clh.clients[client] = true
-		case client := <-clh.unregister:
-			delete(clh.clients, client)
-			client.websocketChannel.Close()
-			fmt.Println("closing channel")
 		case message := <-clh.broadcastChannel:
-			fmt.Println("Message from queue to clients", string(message))
+			fmt.Println("Message from queue to" + string(len(clh.clients)) + "clients")
 			for client := range clh.clients {
 				err := client.SendMessage(message)
-				fmt.Println("total clients", len(clh.clients))
 				if err != nil {
-					fmt.Println("error closing channel")
 					delete(clh.clients, client)
-					client.websocketChannel.Close()
-					fmt.Println("closing channel")
+					client.Close()
 				}
 			}
 		}
 	}
 }
 
-func (clh *WebSocketServiceHub) Unregister(ws *WebSocketService) {
-	clh.unregister <- ws
+func (clh *WebSocketServiceHub) Unregister(client *WebSocketService) {
+	delete(clh.clients, client)
+	client.Close()
 }
 
 func (clh *WebSocketServiceHub) Register(ws *WebSocketService) {
