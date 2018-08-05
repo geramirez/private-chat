@@ -13,8 +13,12 @@
             listenChannel.onmessage = function (evt) {
                 console.log(evt)
                 var chatWindow = document.getElementById("chat-window");
-                var textnode = document.createTextNode(evt.data);
+                var p = document.createElement("p");
+                var br = document.createElement("br");
+                var textnode = document.createTextNode(JSON.parse(evt.data).Text);
+                p.appendChild(textnode)
                 chatWindow.appendChild(textnode);
+                chatWindow.appendChild(br)
             };
 
             listenChannel.onclose = function () {console.log("closing")};
