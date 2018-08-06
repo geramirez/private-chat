@@ -9,91 +9,91 @@ import (
 	. "private-chat"
 )
 
-var _ = Describe("WebSocketServiceHub", func() {
+var _ = Describe("WebSocketClientHub", func() {
 	Context("Initializing", func() {
 		It("Can be initalized and start", func() {
-			go NewWebSocketServiceHub().Start()
+			go NewWebSocketClientHub().Start()
 		})
 	})
 
 	Context("Registering and publishing messages", func() {
 		It("Can send a messages to registered client", func() {
-			webSocketServiceHub := NewWebSocketServiceHub()
-			go webSocketServiceHub.Start()
+			webSocketClientHub := NewWebSocketClientHub()
+			go webSocketClientHub.Start()
 
-			webSocketService := NewFakeWebSocketService()
-			webSocketServiceHub.Register(webSocketService)
+			webSocketClient := NewFakeWebSocketClient()
+			webSocketClientHub.Register(webSocketClient)
 
-			webSocketServiceHub.Publish([]byte("message one"))
-			webSocketServiceHub.Publish([]byte("message two"))
+			webSocketClientHub.Publish([]byte("message one"))
+			webSocketClientHub.Publish([]byte("message two"))
 
-			Expect(len(webSocketService.SendMessageArgs)).To(Equal(2))
-			Expect(webSocketService.SendMessageArgs).To(ContainElement([]byte("message one")))
-			Expect(webSocketService.SendMessageArgs).To(ContainElement([]byte("message two")))
+			Expect(len(webSocketClient.SendMessageArgs)).To(Equal(2))
+			Expect(webSocketClient.SendMessageArgs).To(ContainElement([]byte("message one")))
+			Expect(webSocketClient.SendMessageArgs).To(ContainElement([]byte("message two")))
 
 		})
 
 		It("Can send a messages to multiple registered clients", func() {
-			webSocketServiceHub := NewWebSocketServiceHub()
-			go webSocketServiceHub.Start()
+			webSocketClientHub := NewWebSocketClientHub()
+			go webSocketClientHub.Start()
 
-			webSocketServiceA := NewFakeWebSocketService()
-			webSocketServiceB := NewFakeWebSocketService()
+			webSocketClientA := NewFakeWebSocketClient()
+			webSocketClientB := NewFakeWebSocketClient()
 
-			webSocketServiceHub.Register(webSocketServiceA)
-			webSocketServiceHub.Register(webSocketServiceB)
+			webSocketClientHub.Register(webSocketClientA)
+			webSocketClientHub.Register(webSocketClientB)
 
-			webSocketServiceHub.Publish([]byte("message one"))
+			webSocketClientHub.Publish([]byte("message one"))
 
-			Expect(len(webSocketServiceA.SendMessageArgs)).To(Equal(1))
-			Expect(len(webSocketServiceB.SendMessageArgs)).To(Equal(1))
+			Expect(len(webSocketClientA.SendMessageArgs)).To(Equal(1))
+			Expect(len(webSocketClientB.SendMessageArgs)).To(Equal(1))
 		})
 	})
 
 	Context("Unregistering and publishing messages", func() {
 
 		It("Does not send messages to unregistered clients", func() {
-			webSocketServiceHub := NewWebSocketServiceHub()
-			go webSocketServiceHub.Start()
+			webSocketClientHub := NewWebSocketClientHub()
+			go webSocketClientHub.Start()
 
-			webSocketServiceA := NewFakeWebSocketService()
-			webSocketServiceB := NewFakeWebSocketService()
+			webSocketClientA := NewFakeWebSocketClient()
+			webSocketClientB := NewFakeWebSocketClient()
 
-			webSocketServiceHub.Register(webSocketServiceA)
-			webSocketServiceHub.Register(webSocketServiceB)
-			webSocketServiceHub.Publish([]byte("message one"))
+			webSocketClientHub.Register(webSocketClientA)
+			webSocketClientHub.Register(webSocketClientB)
+			webSocketClientHub.Publish([]byte("message one"))
 
-			webSocketServiceHub.Unregister(webSocketServiceB)
-			webSocketServiceHub.Publish([]byte("message one"))
+			webSocketClientHub.Unregister(webSocketClientB)
+			webSocketClientHub.Publish([]byte("message one"))
 
-			Expect(len(webSocketServiceA.SendMessageArgs)).To(Equal(2))
-			Expect(len(webSocketServiceB.SendMessageArgs)).To(Equal(1))
+			Expect(len(webSocketClientA.SendMessageArgs)).To(Equal(2))
+			Expect(len(webSocketClientB.SendMessageArgs)).To(Equal(1))
 
 		})
 
 		It("Closes clients when they are unregistered", func() {
-			webSocketServiceHub := NewWebSocketServiceHub()
-			go webSocketServiceHub.Start()
+			webSocketClientHub := NewWebSocketClientHub()
+			go webSocketClientHub.Start()
 
-			webSocketService := NewFakeWebSocketService()
+			webSocketClient := NewFakeWebSocketClient()
 
-			webSocketServiceHub.Register(webSocketService)
-			webSocketServiceHub.Unregister(webSocketService)
+			webSocketClientHub.Register(webSocketClient)
+			webSocketClientHub.Unregister(webSocketClient)
 			fmt.Println("Test finished 111")
 
-			Expect(webSocketService.CloseCalled).To(Equal(true))
+			Expect(webSocketClient.CloseCalled).To(Equal(true))
 		})
 
 		It("Unregisters broken clients", func() {
-			webSocketServiceHub := NewWebSocketServiceHub()
-			go webSocketServiceHub.Start()
+			webSocketClientHub := NewWebSocketClientHub()
+			go webSocketClientHub.Start()
 
-			webSocketService := NewFakeWebBrokenSocketService()
-			webSocketServiceHub.Register(webSocketService)
+			webSocketClient := NewFakeBrokenWebSocketClient()
+			webSocketClientHub.Register(webSocketClient)
 
-			webSocketServiceHub.Publish([]byte("message one"))
+			webSocketClientHub.Publish([]byte("message one"))
 			fmt.Println("Test finished 222")
-			Expect(webSocketService.CloseCalled).To(Equal(true))
+			Expect(webSocketClient.CloseCalled).To(Equal(true))
 		})
 	})
 })

@@ -51,8 +51,8 @@ func main() {
 
 	config := NewConfig()
 	chatService := NewChatService(config.QueueUrl)
-	webSocketServiceHub := NewWebSocketServiceHub()
-	go webSocketServiceHub.Start()
+	webSocketClientHub := NewWebSocketClientHub()
+	go webSocketClientHub.Start()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, string(index))
@@ -60,14 +60,14 @@ func main() {
 
 	http.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) {
 
-		webSocketService := NewWebSocketService(w, r, nil)
+		webSocketClient := NewWebSocketClient(w, r, nil)
 		defer func() {
 			fmt.Println("closing /chat")
-			webSocketService.websocketChannel.Close()
+			webSocketClient.websocketChannel.Close()
 		}()
 		fmt.Println("Connecting chat")
 
-		for wsMessage := range webSocketService.MessageStream() {
+		for wsMessage := range webSocketClient.MessageStream() {
 			if wsMessage.err != nil {
 				break
 			}
@@ -77,17 +77,17 @@ func main() {
 
 	http.HandleFunc("/listen", func(w http.ResponseWriter, r *http.Request) {
 
-		webSocketService := NewWebSocketService(w, r, nil)
+		webSocketClient := NewWebSocketClient(w, r, nil)
 		defer func() {
 			fmt.Println("closing /listen")
-			webSocketServiceHub.Unregister(webSocketService)
+			webSocketClientHub.Unregister(webSocketClient)
 		}()
 
-		webSocketServiceHub.Register(webSocketService)
+		webSocketClientHub.Register(webSocketClient)
 		fmt.Println("Connecting listen")
 
 		for message := range chatService.MessageStream() {
-			webSocketServiceHub.Publish(message)
+			webSocketClientHub.Publish(message)
 		}
 	})
 	fmt.Println("RUNNING ONT PORT:", fmt.Sprintf(":%d", config.Port))
