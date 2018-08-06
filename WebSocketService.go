@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -72,4 +73,50 @@ func (c *WebSocketService) SendMessage(msg []byte) error {
 func (c *WebSocketService) Close() {
 	fmt.Println("closing channel")
 	c.websocketChannel.Close()
+}
+
+//////////////////////////////////
+type FakeWebSocketService struct {
+	SendMessageArgs [][]byte
+	CloseCalled     bool
+}
+
+func NewFakeWebSocketService() *FakeWebSocketService {
+	return &FakeWebSocketService{}
+}
+
+func (c *FakeWebSocketService) MessageStream() <-chan WebSocketMessage {
+	return make(chan WebSocketMessage)
+}
+
+func (c *FakeWebSocketService) SendMessage(msg []byte) error {
+	c.SendMessageArgs = append(c.SendMessageArgs, msg)
+	return nil
+}
+
+func (c *FakeWebSocketService) Close() {
+	c.CloseCalled = true
+	fmt.Println("Closing client")
+}
+
+////
+type FakeWebBrokenSocketService struct {
+	CloseCalled bool
+}
+
+func NewFakeWebBrokenSocketService() *FakeWebBrokenSocketService {
+	return &FakeWebBrokenSocketService{}
+}
+
+func (c *FakeWebBrokenSocketService) MessageStream() <-chan WebSocketMessage {
+	return make(chan WebSocketMessage)
+}
+
+func (c *FakeWebBrokenSocketService) SendMessage(msg []byte) error {
+	return errors.New("")
+}
+
+func (c *FakeWebBrokenSocketService) Close() {
+	c.CloseCalled = true
+	fmt.Println("Closing client")
 }
